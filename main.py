@@ -1,63 +1,30 @@
-import matplotlib as mpl
-import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib.collections import LineCollection
+import matplotlib.pyplot as plt
 
-import fastf1 as ff1
-
-#Predefined variables that allow us to control our plotting
-year = 2024
-wknd = 21
-ses = 'R'
-driver = 'VER'
-colormap = mpl.cm.plasma
-
-#Loading desired session and the selection of desired data
-session = ff1.get_session(year, wknd, ses)
-weekend = session.event
-session.load()
-lap = session.laps.pick_drivers(driver).pick_fastest()
-
-# Get telemetry data
-x = lap.telemetry['X']              # values for x-axis
-y = lap.telemetry['Y']              # values for y-axis
-color = lap.telemetry['Speed']      # value to base color gradient on
-
-#God only knows, but look further into documentation
-points = np.array([x, y]).T.reshape(-1, 1, 2)
-segments = np.concatenate([points[:-1], points[1:]], axis=1)
+import fastf1.plotting
 
 
-# We create a plot with title and adjust some setting to make it look good.
-fig, ax = plt.subplots(sharex=True, sharey=True, figsize=(12, 6.75))
-fig.suptitle(f'{weekend.name} {year} - {driver} - Speed', size=24, y=0.97)
+# Load FastF1's dark color scheme
+fastf1.plotting.setup_mpl(mpl_timedelta_support=False, misc_mpl_mods=False, color_scheme='fastf1')
 
-# Adjust margins and turn of axis
-plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.12)
-ax.axis('off')
+session = fastf1.get_session(2024, 21, 'R')
+session.load(telemetry=False, weather=False)
 
+fig, ax = plt.subplots(figsize=(8.0, 4.9))
 
-# After this, we plot the data itself.
-# Create background track line
-ax.plot(lap.telemetry['X'], lap.telemetry['Y'],
-        color='black', linestyle='-', linewidth=16, zorder=0)
+for drv in session.drivers:
+    drv_laps = session.laps.pick_driver(drv)
 
-# Create a continuous norm to map from data points to colors
-norm = plt.Normalize(color.min(), color.max())
-lc = LineCollection(segments, cmap=colormap, norm=norm,
-                    linestyle='-', linewidth=5)
+    abb = drv_laps['Driver'].iloc[0]
+    style = fastf1.plotting.get_driver_style(identifier=abb, style=['color', 'linestyle'], session=session)
 
-# Set the values used for colormapping
-lc.set_array(color)
+    ax.plot(drv_laps['LapNumber'], drv_laps['Position'], label=abb, **style)
 
-# Merge all line segments together
-line = ax.add_collection(lc)
+ax.set_ylim([20.5, 0.5])
+ax.set_yticks([1, 5, 10, 15, 20])
+ax.set_xlabel('Lap')
+ax.set_ylabel('Position')
 
+ax.legend(bbox_to_anchor=(1.0, 1.02))
+plt.tight_layout()
 
-# Finally, we create a color bar as a legend.
-cbaxes = fig.add_axes([0.25, 0.05, 0.5, 0.05])
-normlegend = mpl.colors.Normalize(vmin=color.min(), vmax=color.max())
-legend = mpl.colorbar.ColorbarBase(cbaxes, norm=normlegend, cmap=colormap, orientation="horizontal")
-
-# Show the plot
 plt.show()
